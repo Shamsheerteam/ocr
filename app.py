@@ -17,7 +17,7 @@ if encoded_credentials:
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "service_account.json"
 
 # Initialize Firestore client
-project_id = os.environ.get('PROJECT_ID')  # Set your project ID as an environment variable
+project_id = os.getenv('PROJECT_ID')  # Set your project ID as an environment variable
 db = firestore.Client(project=project_id)
 
 app = Flask(__name__)
