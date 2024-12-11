@@ -2,3 +2,4 @@ Flask
 requests
 google-cloud-vision
 google-cloud-firestore
+gunicorn
