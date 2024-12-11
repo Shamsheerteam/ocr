@@ -2,7 +2,6 @@ import io
 import os
 import re
 from flask import Flask, request, jsonify
-
 import requests
 from google.cloud import vision
 from google.cloud import firestore
