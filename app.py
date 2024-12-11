@@ -1,13 +1,20 @@
 import io
 import os
 import re
+import json
+import base64
 from flask import Flask, request, jsonify
 import requests
 from google.cloud import vision
 from google.cloud import firestore
 
-# Set the environment variable for Google Application Credentials directly from Render's environment
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.environ['FIREBASE_CREDS_PATH']  # FIREBASE_CREDS_PATH set in Render environment
+# Decode and set Google Application Credentials from the Render environment variable
+encoded_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_ENCODED")
+if encoded_credentials:
+    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+    with open("service_account.json", "w") as cred_file:
+        cred_file.write(decoded_credentials)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "service_account.json"
 
 # Initialize Firestore client
 project_id = os.environ.get('PROJECT_ID')  # Set your project ID as an environment variable
