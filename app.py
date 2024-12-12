@@ -22,8 +22,8 @@ db = firestore.Client(project=project_id)
 
 app = Flask(__name__)
 
-def detect_text(image_url):
-    """Detects text in the image from the given URL and returns the extracted text."""
+def detect_text(image_url, document_id):  # Add document_id as an argument
+    """Detects text in the image from the given URL."""
     try:
         response = requests.get(image_url, stream=True)
         response.raise_for_status()  # Raise an exception for bad status codes
@@ -35,10 +35,31 @@ def detect_text(image_url):
         texts = response.text_annotations
 
         if texts:
-            return texts[0].description  # Return the detected text from the first annotation
+            extracted_text = texts[0].description
+            print('Extracted text:')
+            print(extracted_text)
+
+            # Convert to dictionary and process ID
+            try:
+                text_dict = create_text_dictionary(
+                    extracted_text)  # No need to extract doc_id here
+                print('Text dictionary:')
+                print(text_dict)
+
+                # Store or update in Firestore
+                store_in_firestore(
+                    text_dict, document_id)  # Use the provided document_id
+
+            except ValueError as e:
+                print(f"Error creating dictionary: {e}")
+                print(
+                    "Please make sure the text in the image is in the format 'key,value'"
+                )
+                print(
+                    f"Actual extracted text: {extracted_text}"
+                )  # Print the actual text
         else:
-            print(f"No text found in image: {image_url}")
-            return None
+            print('No text found')
 
         if response.error.message:
             raise Exception(
@@ -48,25 +69,45 @@ def detect_text(image_url):
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching image from URL: {e}")
-        return None
 
-def create_text_dictionary(text):
+
+def create_text_dictionary(text):  # Remove doc_id from arguments
     """Converts the extracted text to a dictionary."""
-    text_dict = {}
+    output_dict = {}
     lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     if not lines:
         raise ValueError("No text lines found in the input")
 
-    for line in lines:
-        match = re.match(r"^\s*([\w.]+)\s*,\s*(\d+)\s*$", line)
-        if match:
-            key, value = match.groups()
-            text_dict[key] = int(value)
-        else:
-            print(f"Ignoring line '{line}' as it doesn't match the 'key,value' format.")
+    data = lines[4:]
+    # Process all lines as key-value pairs, ignoring Category and Data Item Name
+    try:
+        alternate_dot_pattern = r'^(\d\.)+(\d|\w)$'
+        all_digits_pattern = r'^\d+$'
+        
+        filtered_data = [item for item in data if re.match(alternate_dot_pattern, item) or re.match(all_digits_pattern, item)]
+        
+        # Create dictionary mapping keys with numeric values
+        output_dict = {}
+        keys = []
+        values = []
+        current_key = None
+        for item in filtered_data:
+            if any(char.isdigit() for char in item) and any(char == '.' for char in item):
+                keys.append(item)
+            elif all(char.isdigit() for char in item):
+                values.append(item)
+        
+        total = len(keys)
+        for i in range(0, total):
+            output_dict[keys[i]] = values[i]
 
-    return text_dict
+    except ValueError:
+        print(
+            f"Ignoring line '{line}' as it doesn't match the expected format."
+        )
+
+    return output_dict  # Return only the dictionary
 
 def store_in_firestore(data_dict, doc_id):
     """Stores the data in a Firestore document, creating it if it doesn't exist."""
