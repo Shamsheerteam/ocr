@@ -79,32 +79,35 @@ def create_text_dictionary(text):
         raise ValueError("No text lines found in the input")
 
     data = lines[4:]
-    
+
     try:
         alternate_dot_pattern = r'^(\d\.)+(\d|\w)$'
         all_digits_pattern = r'^\d+$'
-        
-        filtered_data = [item for item in data if re.match(alternate_dot_pattern, item) or re.match(all_digits_pattern, item)]
-        
+
+        filtered_data = [
+            item for item in data 
+            if re.match(alternate_dot_pattern, item) or re.match(all_digits_pattern, item)
+        ]
+
         keys = []
         values = []
         for item in filtered_data:
-            if any(char.isdigit() for char in item) and any(char == '.' for char in item):
-                # Convert the dotted notation to an integer
-                # e.g., "1.2.3" becomes 123
-                key = int(''.join(filter(str.isdigit, item)))
+            if any(char.isdigit() for char in item) and '.' in item:
+                # Convert the dotted notation to a string of integers
+                key = ''.join(filter(str.isdigit, item))
                 keys.append(key)
             elif all(char.isdigit() for char in item):
                 values.append(item)
-        
+
         total = len(keys)
-        for i in range(0, total):
-            output_dict[keys[i]] = values[i]
+        for i in range(total):
+            output_dict[str(keys[i])] = values[i]  # Ensure keys are strings
 
     except ValueError as e:
         raise ValueError(f"Error processing text format: {str(e)}")
 
     return output_dict
+
 
 def store_in_firestore(data_dict, doc_id):
     """Stores the data in a Firestore document, creating it if it doesn't exist."""
@@ -112,12 +115,13 @@ def store_in_firestore(data_dict, doc_id):
         'success': False,
         'message': ''
     }
-    
+
     try:
+        # Ensure all keys are strings
+        data_with_string_keys = {str(k): v for k, v in data_dict.items()}
         doc_ref = db.collection('scanned_data').document(doc_id)
-        # Add server timestamp to the data
         data_with_timestamp = {
-            **data_dict,
+            **data_with_string_keys,
             'timestamp': firestore.SERVER_TIMESTAMP
         }
         doc_ref.set(data_with_timestamp, merge=True)
@@ -125,8 +129,9 @@ def store_in_firestore(data_dict, doc_id):
         status['message'] = f"Data stored in Firestore document with ID: {doc_id}"
     except Exception as e:
         status['message'] = f"Error storing data in Firestore: {str(e)}"
-    
+
     return status
+
 
 @app.route('/process_images', methods=['POST'])
 def process_images_api():
