@@ -90,7 +90,10 @@ def create_text_dictionary(text):
         values = []
         for item in filtered_data:
             if any(char.isdigit() for char in item) and any(char == '.' for char in item):
-                keys.append(item)
+                # Convert the dotted notation to an integer
+                # e.g., "1.2.3" becomes 123
+                key = int(''.join(filter(str.isdigit, item)))
+                keys.append(key)
             elif all(char.isdigit() for char in item):
                 values.append(item)
         
@@ -112,7 +115,12 @@ def store_in_firestore(data_dict, doc_id):
     
     try:
         doc_ref = db.collection('scanned_data').document(doc_id)
-        doc_ref.set(data_dict, merge=True)
+        # Add server timestamp to the data
+        data_with_timestamp = {
+            **data_dict,
+            'timestamp': firestore.SERVER_TIMESTAMP
+        }
+        doc_ref.set(data_with_timestamp, merge=True)
         status['success'] = True
         status['message'] = f"Data stored in Firestore document with ID: {doc_id}"
     except Exception as e:
